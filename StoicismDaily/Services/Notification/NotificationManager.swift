@@ -8,11 +8,9 @@ final class NotificationManager: ObservableObject {
     @Published var isAuthorized = false
     @Published var reminderTime = UserDefaults.standard.object(forKey: "ReminderTime") as? Date ?? Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @Published var isEnabled = UserDefaults.standard.bool(forKey: "NotificationsEnabled")
-    @Published var dailyQuote: StoicQuote?
-    @Published var errorMessage: String?
     
-    // 备份数据，避免网络失败时无法推送
-    private var lastSuccessfulQuote: StoicQuote?
+    // 存储获取到的名言列表
+    private var quotePool: [StoicQuote] = []
 
     private init() {
         checkAuthorization()
@@ -37,11 +35,7 @@ final class NotificationManager: ObservableObject {
         UserDefaults.standard.set(enabled, forKey: "NotificationsEnabled")
 
         if enabled {
-            // 开启时立即尝试获取数据并调度
-            Task {
-                await fetchQuote()
-                scheduleDailyNotification()
-            }
+            scheduleWeeklyNotifications()
         } else {
             cancelAllNotifications()
         }
@@ -51,48 +45,62 @@ final class NotificationManager: ObservableObject {
         self.reminderTime = time
         UserDefaults.standard.set(time, forKey: "ReminderTime")
         if isEnabled {
-            // 修改时间时，也需要重新获取最新数据并调度
-            Task {
-                await fetchQuote()
-                scheduleDailyNotification()
-            }
+            scheduleWeeklyNotifications()
         }
     }
 
-    func fetchQuote() async {
-        errorMessage = nil
-        do {
-            let quotes = try await QuoteLoader.loadQuotes()
-            if let first = quotes.first {
-                self.dailyQuote = first
-                self.lastSuccessfulQuote = first 
-            }
-        } catch {
-            self.errorMessage = "Failed to load quote."
-        }
-    }
-
-    func scheduleDailyNotification() {
-        // 核心优化：确保数据已准备好
-        // 如果 dailyQuote 和 lastSuccessfulQuote 都为空，则不调度，或者在此处做防御性编程
-        let quoteToUse = dailyQuote ?? lastSuccessfulQuote
-        
+    /// 核心方法：预约未来 7 天的通知
+    func scheduleWeeklyNotifications() {
+        // 1. 清除之前所有待发的通知，确保重新排程
         cancelAllNotifications()
         
-        let content = UNMutableNotificationContent()
-        content.title = "Daily Stoic Wisdom"
-        // 如果确实取不到任何数据，才使用欢迎语作为底线防御
-        content.body = quoteToUse?.quote ?? "Welcome to your daily Stoic journey. Open the app for your wisdom."
-        content.sound = .default
+        Task {
+            do {
+                // 2. 加载名言库
+                let quotes = try await QuoteLoader.loadQuotes()
+                guard !quotes.isEmpty else { return }
+                
+                let calendar = Calendar.current
+                let center = UNUserNotificationCenter.current()
+                
+                // 提取用户设置的小时和分钟
+                let selectedHour = calendar.component(.hour, from: reminderTime)
+                let selectedMinute = calendar.component(.minute, from: reminderTime)
 
-        let components = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        let request = UNNotificationRequest(identifier: "DailyQuoteReminder", content: content, trigger: trigger)
+                // 3. 循环创建 7 条通知
+                for dayOffset in 0..<7 {
+                    // 计算目标日期：今天 + dayOffset 天
+                    guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
+                    
+                    // 构造该天的触发时间组件
+                    var components = DateComponents()
+                    components.hour = selectedHour
+                    components.minute = selectedMinute
+                    components.day = calendar.component(.day, from: targetDate)
+                    components.month = calendar.component(.month, from: targetDate)
+                    components.year = calendar.component(.year, from: targetDate)
 
-        UNUserNotificationCenter.current().add(request) { error in
-            if error == nil {
-                // 只有调度成功才重置，避免循环获取
-                DispatchQueue.main.async { self.dailyQuote = nil }
+                    // 4. 配置通知内容
+                    let content = UNMutableNotificationContent()
+                    content.title = "Daily Stoic Wisdom"
+                    
+                    // 策略：按顺序取名言，如果 offset 超过数组长度则取模
+                    let quote = quotes[dayOffset % quotes.count]
+                    content.body = quote.quote
+                    content.sound = .default
+
+                    // 5. 创建触发器和请求
+                    // identifier 必须唯一（例如 Daily_0, Daily_1...）
+                    let identifier = "DailyQuote_Day_\(dayOffset)"
+                    let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+                    let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+                    // 6. 添加到系统
+                    try await center.add(request)
+                    print("Successfully scheduled: \(identifier) at \(components.month!)/\(components.day!) \(selectedHour):\(selectedMinute)")
+                }
+            } catch {
+                print("Failed to schedule notifications: \(error)")
             }
         }
     }
