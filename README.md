@@ -6,9 +6,10 @@
 
 ## 📸 UI Preview
 
-| Home | Saved |
+| 1 | 2 |
 | :---: | :---: |
 | ![Home](StoicismDaily/ScreenShot/home.jpeg) | ![Saved](StoicismDaily/ScreenShot/saved.jpeg) |
+| ![chengsi](StoicismDaily/ScreenShot/chengsi.jpeg) | ![ai](StoicismDaily/ScreenShot/ai.jpeg) |
 
 ---
 
