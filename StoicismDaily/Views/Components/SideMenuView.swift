@@ -51,7 +51,7 @@ struct MainView: View {
             }
             .animation(.menuAnimation, value: viewModel.showMenu)
             .animation(.menuAnimation, value: viewModel.dragOffset)
-            .navigationTitle(viewModel.showMenu ? "" : viewModel.selectedMenuItem)
+            // .navigationTitle(viewModel.showMenu ? "" : viewModel.selectedMenuItem)
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -75,7 +75,7 @@ struct MainContentView: View {
                             }
                         } label: {
                             Image(systemName: viewModel.showMenu ? "multiply" : "line.3.horizontal")
-                                .font(.system(size: 18, weight: .semibold))
+                                .font(.title3)
                                 .foregroundStyle(.primary)
                                 .contentTransition(.symbolEffect(.replace))
                         }
@@ -127,15 +127,22 @@ struct SideMenuView: View {
                 viewModel.selectItem(item.title)
             } label: {
                 HStack(spacing: 15) {
-                    Image(systemName: item.icon).frame(width: 25)
+                    Image(systemName: item.icon)
+                        .font(.title3)
                     Text(item.title)
+                        .font(.title3)
+
                     Spacer()
                 }
+                // 1. 先添加内边距
                 .padding(.vertical, 12)
+                .padding(.horizontal, 16)
+                // 2. 再定义点击区域的形状，这个形状会覆盖上面所有内边距构成的整个区域
+                .contentShape(RoundedRectangle(cornerRadius: 10))
+                // 3. 最后设置视觉上的圆角
                 .cornerRadius(10)
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 16)
         }
     }
 }

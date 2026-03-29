@@ -12,6 +12,7 @@ import SwiftUI
 struct StoicismDailyApp: App {
     @StateObject private var quoteViewModel = StoicQuoteViewModel()
     @StateObject private var favoritesViewModel = FavoritesViewModel()
+    @StateObject private var reflectionViewModel = ReflectionViewModel()
 
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notificationManager = NotificationManager.shared
@@ -21,8 +22,9 @@ struct StoicismDailyApp: App {
             MainView()
                 .environmentObject(quoteViewModel)
                 .environmentObject(favoritesViewModel)
+                .environmentObject(reflectionViewModel)
         }
-        .modelContainer(for: [StoicQuote.self])
+        .modelContainer(for: [StoicQuote.self, DailyReflection.self])
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 // 当 App 变为活跃状态（启动或从后台切回）时

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit // 需要导入 UIKit 以使用 UIDevice
 
 extension Color {
     static let stoicAccent = Color(.label).opacity(0.75)
@@ -19,6 +20,7 @@ enum AdaptiveLayout {
         isIPad ? 24 : 18
     }
 
+    // 修正了下面的函数
     static func horizontalPadding() -> CGFloat {
         isIPad ? 80 : 32
     }

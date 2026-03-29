@@ -8,6 +8,7 @@ final class StoicQuoteViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var hearts: [FavoriteHeart] = []
     @Published var dragOffset: CGFloat = 0
+    @Published var isExplaining: Bool = false
 
     @Published var showToast: Bool = false
     @Published var toastMessage: String = ""
@@ -76,5 +77,20 @@ final class StoicQuoteViewModel: ObservableObject {
                 await fetchQuote()
             }
         }
+    }
+
+    func fetchAIExplanation() async {
+        guard let quote = currentQuote, quote.aiExplanation == nil else { return }
+
+        isExplaining = true
+        do {
+            let explanation = try await LongCatAIService.shared.fetchExplanation(for: quote.quote, author: quote.author)
+            quote.aiExplanation = explanation
+            // Trigger UI update
+            objectWillChange.send()
+        } catch {
+            errorMessage = "Failed to get AI explanation. Please try again."
+        }
+        isExplaining = false
     }
 }

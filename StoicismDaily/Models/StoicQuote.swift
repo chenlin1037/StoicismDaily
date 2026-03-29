@@ -11,14 +11,16 @@ struct StoicQuoteResponse: Decodable {
 }
 
 @Model
-final class StoicQuote: Codable,Sendable, Hashable {
+final class StoicQuote: Codable, @unchecked Sendable, Hashable {
     var author: String
     var quote: String
     var createdAt: Date = Date()
+    var aiExplanation: String?
 
-    init(author: String, quote: String) {
+    init(author: String, quote: String, aiExplanation: String? = nil) {
         self.author = author
         self.quote = quote
+        self.aiExplanation = aiExplanation
         createdAt = Date()
     }
 
@@ -26,12 +28,14 @@ final class StoicQuote: Codable,Sendable, Hashable {
     enum CodingKeys: String, CodingKey {
         case author
         case quote
+        case aiExplanation
     }
 
     required init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         author = try container.decode(String.self, forKey: .author)
         quote = try container.decode(String.self, forKey: .quote)
+        aiExplanation = try container.decodeIfPresent(String.self, forKey: .aiExplanation)
         createdAt = Date()
     }
 
@@ -39,6 +43,7 @@ final class StoicQuote: Codable,Sendable, Hashable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(author, forKey: .author)
         try container.encode(quote, forKey: .quote)
+        try container.encodeIfPresent(aiExplanation, forKey: .aiExplanation)
     }
 
     // Hashable conformance

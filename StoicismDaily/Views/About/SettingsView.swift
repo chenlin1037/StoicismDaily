@@ -6,12 +6,18 @@ struct SettingsView: View {
 
     var body: some View {
         List {
+            Section(header: Text("Content")) {
+                NavigationLink(destination: ReflectionHistoryView()) {
+                    Text("Reflection History")
+                }
+            }
+
             Section(header: Text("Reminder Settings")) {
                 Toggle("Daily Reminder", isOn: Binding(
                     get: { notificationManager.isEnabled },
                     set: { notificationManager.toggleNotifications(enabled: $0) }
                 ))
-                .onChange(of: notificationManager.isEnabled) { oldValue,newValue in
+                .onChange(of: notificationManager.isEnabled) { _, newValue in
                     if newValue && !notificationManager.isAuthorized {
                         Task {
                             await notificationManager.requestAuthorization()
