@@ -7,6 +7,7 @@ class ReflectionViewModel: ObservableObject {
     @Published var reflectionText: String = ""
     @Published var currentReflection: DailyReflection?
     @Published var isLoading = false
+    @Published var errorMessage: String?
 
     private var modelContext: ModelContext?
 
@@ -34,12 +35,16 @@ class ReflectionViewModel: ObservableObject {
                 reflectionText = ""
             }
         } catch {
-            print("Failed to fetch reflection: \(error)")
+            errorMessage = "Unable to load this reflection: \(error.localizedDescription)"
         }
     }
 
-    func saveReflection(quote: StoicQuote) {
-        guard let context = modelContext else { return }
+    @discardableResult //不关心返回值，只关心是否保存成功，使用@discardableResult修饰符
+    func saveReflection(quote: StoicQuote) -> Bool {
+        guard let context = modelContext else {
+            errorMessage = "Reflection storage is unavailable. Please try again."
+            return false
+        }
 
         if let existing = currentReflection {
             existing.reflectionText = reflectionText
@@ -54,7 +59,14 @@ class ReflectionViewModel: ObservableObject {
             currentReflection = newReflection
         }
 
-        try? context.save()
+        do {
+            try context.save()
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = "Unable to save this reflection: \(error.localizedDescription)"
+            return false
+        }
     }
     
    

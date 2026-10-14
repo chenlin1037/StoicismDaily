@@ -35,8 +35,36 @@ class LongCatAIService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
-        let response = try JSONDecoder().decode(AIResponse.self, from: data)
-        return response.choices.first?.message.content ?? "无法获取AI解读。"
+        request.timeoutInterval = 30
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AIServiceError.invalidResponse
+        }
+        guard (200...299).contains(httpResponse.statusCode) else {
+            throw AIServiceError.httpStatus(httpResponse.statusCode)
+        }
+        let decodedResponse = try JSONDecoder().decode(AIResponse.self, from: data)
+        guard let content = decodedResponse.choices.first?.message.content,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIServiceError.emptyResponse
+        }
+        return content
+    }
+}
+
+enum AIServiceError: LocalizedError {
+    case invalidResponse
+    case httpStatus(Int)
+    case emptyResponse
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "The AI service returned an invalid response."
+        case .httpStatus(let statusCode):
+            return "The AI service returned an error (\(statusCode)). Please try again."
+        case .emptyResponse:
+            return "The AI service returned an empty explanation. Please try again."
+        }
     }
 }

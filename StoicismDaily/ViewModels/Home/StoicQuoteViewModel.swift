@@ -6,6 +6,7 @@ final class StoicQuoteViewModel: ObservableObject {
     @Published var currentQuote: StoicQuote?
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
+    @Published var aiErrorMessage: String?
     @Published var hearts: [FavoriteHeart] = []
     @Published var dragOffset: CGFloat = 0
     @Published var isExplaining: Bool = false
@@ -14,12 +15,10 @@ final class StoicQuoteViewModel: ObservableObject {
     @Published var toastMessage: String = ""
 
     private let favoriteManager = FavoriteQuoteManager.shared
-
-    init() {
-        Task { await fetchQuote() }
-    }
+    private var toastTask: Task<Void, Never>?
 
     func fetchQuote() async {
+        guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
 
@@ -28,7 +27,7 @@ final class StoicQuoteViewModel: ObservableObject {
             currentQuote = quotes.first
         } catch {
             // 更新错误提示
-            errorMessage = "Failed to load quote, please try again later."
+            errorMessage = error.localizedDescription
         }
 
         isLoading = false
@@ -42,6 +41,9 @@ final class StoicQuoteViewModel: ObservableObject {
         let isFavoriteNow = favoriteManager.toggleFavorite(quote)
 
         if isFavoriteNow {
+            if hearts.count >= 5 {
+                hearts.removeFirst(hearts.count - 4)
+            }
             let newHeart = FavoriteHeart(location: location)
             hearts.append(newHeart)
             // 更新收藏提示
@@ -54,11 +56,17 @@ final class StoicQuoteViewModel: ObservableObject {
         showToast = true
 
         let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
         generator.notificationOccurred(.success)
 
-        Task {
-            try? await Task.sleep(nanoseconds: 2 * 1_000_000_000)
-            showToast = false
+        toastTask?.cancel()
+        toastTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(2))
+                self?.showToast = false
+            } catch {
+                // A cancelled toast timer should not change the current toast state.
+            }
         }
 
         return true
@@ -82,14 +90,16 @@ final class StoicQuoteViewModel: ObservableObject {
     func fetchAIExplanation() async {
         guard let quote = currentQuote, quote.aiExplanation == nil else { return }
 
+        guard !isExplaining else { return }
         isExplaining = true
+        aiErrorMessage = nil
         do {
             let explanation = try await LongCatAIService.shared.fetchExplanation(for: quote.quote, author: quote.author)
             quote.aiExplanation = explanation
             // Trigger UI update
             objectWillChange.send()
         } catch {
-            errorMessage = "Failed to get AI explanation. Please try again."
+            aiErrorMessage = error.localizedDescription
         }
         isExplaining = false
     }

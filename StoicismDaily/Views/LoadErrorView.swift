@@ -13,7 +13,7 @@ struct LoadErrorView: View {
                 Text("Connection Interrupted")
                     .font(.system(.headline, design: .serif))
 
-                Text("Perhaps a moment for reflection, or try again later.")
+                Text(viewModel.errorMessage ?? "Perhaps a moment for reflection, or try again later.")
                     .font(.system(.subheadline, design: .serif))
                     .foregroundColor(.secondary)
                     .italic()

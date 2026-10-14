@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AIExplanationView: View {
     let quote: StoicQuote
+    let errorMessage: String?
+    let onRetry: () -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -33,6 +35,14 @@ struct AIExplanationView: View {
                                 .lineSpacing(6)
                         }
                         .padding()
+                    } else if let errorMessage {
+                        VStack(spacing: 12) {
+                            Text(errorMessage)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button("Try Again", action: onRetry)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 200)
                     } else {
                         VStack(spacing: 20) {
                             ProgressView()

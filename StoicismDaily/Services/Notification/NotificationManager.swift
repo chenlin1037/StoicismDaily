@@ -9,8 +9,7 @@ final class NotificationManager: ObservableObject {
     @Published var reminderTime = UserDefaults.standard.object(forKey: "ReminderTime") as? Date ?? Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @Published var isEnabled = UserDefaults.standard.bool(forKey: "NotificationsEnabled")
     
-    // 存储获取到的名言列表
-    private var quotePool: [StoicQuote] = []
+    private var schedulingTask: Task<Void, Never>?
 
     private init() {
         checkAuthorization()
@@ -20,6 +19,9 @@ final class NotificationManager: ObservableObject {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 self.isAuthorized = settings.authorizationStatus == .authorized
+                if self.isEnabled && self.isAuthorized {
+                    self.scheduleWeeklyNotifications()
+                }
             }
         }
     }
@@ -27,7 +29,11 @@ final class NotificationManager: ObservableObject {
     func requestAuthorization() async {
         let granted = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
         self.isAuthorized = granted ?? false
-        if !(granted ?? false) { self.isEnabled = false }
+        if !(granted ?? false) {
+            self.isEnabled = false
+            UserDefaults.standard.set(false, forKey: "NotificationsEnabled")
+            cancelAllNotifications()
+        }
     }
 
     func toggleNotifications(enabled: Bool) {
@@ -51,10 +57,13 @@ final class NotificationManager: ObservableObject {
 
     /// 核心方法：预约未来 7 天的通知
     func scheduleWeeklyNotifications() {
+        schedulingTask?.cancel()
+        guard isEnabled, isAuthorized else { return }
+
         // 1. 清除之前所有待发的通知，确保重新排程
         cancelAllNotifications()
         
-        Task {
+        schedulingTask = Task {
             do {
                 // 2. 加载名言库
                 let quotes = try await QuoteLoader.loadQuotes()
@@ -69,6 +78,7 @@ final class NotificationManager: ObservableObject {
 
                 // 3. 循环创建 7 条通知
                 for dayOffset in 0..<7 {
+                    try Task.checkCancellation()
                     // 计算目标日期：今天 + dayOffset 天
                     guard let targetDate = calendar.date(byAdding: .day, value: dayOffset, to: Date()) else { continue }
                     
@@ -97,15 +107,17 @@ final class NotificationManager: ObservableObject {
 
                     // 6. 添加到系统
                     try await center.add(request)
-                    print("Successfully scheduled: \(identifier) at \(components.month!)/\(components.day!) \(selectedHour):\(selectedMinute)")
                 }
             } catch {
-                print("Failed to schedule notifications: \(error)")
+                if !Task.isCancelled {
+                    NSLog("Failed to schedule notifications: %@", error.localizedDescription)
+                }
             }
         }
     }
 
     func cancelAllNotifications() {
+        schedulingTask?.cancel()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 }

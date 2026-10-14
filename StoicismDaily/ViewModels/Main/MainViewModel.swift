@@ -33,9 +33,9 @@ final class MainViewModel: ObservableObject {
     }
 
     func handleDragEnded(value: DragGesture.Value) {
-        let velocity = value.translation.width
+        let projectedOffset = value.predictedEndTranslation.width
         if showMenu {
-            if velocity < -80 {
+            if projectedOffset < -max(80, menuWidth * 0.25) {
                 closeMenu()
             } else {
                 openMenu()

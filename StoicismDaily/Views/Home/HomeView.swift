@@ -105,7 +105,11 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingAIExplanation) {
                 if let quote = viewModel.currentQuote {
-                    AIExplanationView(quote: quote)
+                    AIExplanationView(
+                        quote: quote,
+                        errorMessage: viewModel.aiErrorMessage,
+                        onRetry: { Task { await viewModel.fetchAIExplanation() } }
+                    )
                 }
             }
             // 手势与其他逻辑保持不变
